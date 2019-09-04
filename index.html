@@ -1,0 +1,225 @@
+<html>
+<head>
+  <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/Faker/3.1.0/faker.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.js'></script>
+  <style>
+    * {
+      font-family: verdana
+    }
+    .addButton {
+      height: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .destroy {
+      margin-top: 1rem;
+      height: 2rem;
+      width: 100%;
+    }
+    .error {
+      color: red;
+    }
+    /* hr {
+      color: orange;
+      background-color: orange;
+      height: 0.1rem;
+    } */
+  </style>
+</head>
+<body>
+  <div id='root'></div>
+  <script type='text/babel'>
+    const { Component } = React;
+    const { render } = ReactDOM;
+    const API = 'https://acme-users-api-rev.herokuapp.com/api';
+
+    const fetchUser = async ()=> {
+      const storage = window.localStorage;
+      const userId = storage.getItem('userId');
+      if(userId){
+        try {
+          return (await axios.get(`${API}/users/detail/${userId}`)).data;
+        }
+        catch(ex){
+          storage.removeItem('userId');
+          return fetchUser();
+        }
+      }
+      const user = (await axios.get(`${API}/users/random`)).data;
+      storage.setItem('userId', user.id);
+      return user;
+    };
+    const Notes = ({ notes, error, addNote, update, _delete }) => {
+      return (
+      <div>
+        <h1>Notes ({ notes.length })</h1>
+        <button className='addButton' onClick = { () => addNote() } >Add A Random Note</button>
+        < br />
+        {
+          notes.map( note => {
+            return (
+            <div key={note.id}>
+            {note.text}
+            <button className='destroy' onClick = { () =>_delete(note.id) } >Destroy</button>
+            </div>
+          )})
+        }
+        < hr />
+      </div>
+      )
+    }
+    const FollowingCompanies = ({ companies, followingCompanies, user, error, addCompany, update, _delete }) => {
+      let filteredComp = companies.filter( company => followingCompanies.find( followComp => company.id === followComp.companyId))
+      let index = Math.floor(Math.random() * companies.length)//between 1 and 60
+      return (
+      <div>
+        <h1>Following Companies ({ filteredComp.length })</h1>
+        <button className='addButton' onClick = { () => addCompany(companies[index]) } >Add A Random Following Company</button>
+        < br />
+        {
+          followingCompanies.map(filComp => {
+            const company = companies.find(company => filComp.companyId === company.id)
+              return (
+                <div key={filComp.id}>
+                  {company.name}
+                  <button className="destroy" onClick={() => _delete(filComp.id, "companies")}> Destroy </button>
+                </div>
+              )
+            })
+        }
+        < hr />
+      </div>
+      )
+    }
+    const Vacations = ({ vacations, error, addVacation, update,  _delete }) => {
+      return (
+      <div>
+        <h1>Vacations ({vacations.length})</h1>
+        <button className='addButton' onClick = { () => addVacation() } >Add a Random Vacation</button>
+        < br />
+        {
+          vacations.map( vacation => {
+            return (
+              <div key = { vacation.id }>
+              {moment(vacation.startDate).format('MM/DD/YYYY')} to {moment(vacation.endDate).format('MM/DD/YYYY')}
+              <button className='destroy' onClick = { () => _delete(vacation.id) }>Destroy</button>
+              </div>
+          )})
+        }
+        < hr />
+      </div>
+      )
+    }
+
+    class App extends Component {
+      constructor() {
+        super();
+        this.state = {
+          user: {},
+          companies: [],
+          vacations: [],
+          notes: [],
+          followingCompanies: [],
+          error: ''
+        }
+      }
+      addNote = async ( id, text ) => {
+        let error = '';
+        if ( this.state.notes.length === 5 ) {
+          console.log('hi')
+          error = 'user can only have a max of 5 notes';
+          this.setState({ error });
+        } else {
+        text = [
+          'Lorem ipsum dolor sit amet',
+          'consectetur adipiscing elit',
+          'In sit amet purus lectus',
+          'Sed in dui sagittis, convallis odio non',
+          'Aenean eleifend iaculis',
+          'Maecenas congue erat',
+          'rutrum turpis elementum'
+        ];
+        const note = (await axios.post(`${API}/users/${this.state.user.id}/notes`, { text: `${text[Math.round(Math.random())]}` } )).data;
+        const notes = [...this.state.notes, note];
+        this.setState({ notes });
+        }
+      }
+
+      addCompany = async (company) => {
+        let error = '';
+        if ( this.state.followingCompanies.length === 5 ) {
+          console.log('hi')
+          error = 'user is already following 5 companies';
+          this.setState({ error });
+        } else {
+        company = (await axios.post(`${API}/users/${this.state.user.id}/followingCompanies`, {rating: 3, companyId: company.id})).data
+        const followingCompanies = [...this.state.followingCompanies, company];
+        this.setState({ followingCompanies });
+        }
+      }
+      addVacation = async(id) => {
+        let error = '';
+        if ( this.state.vacations.length === 3 ) {
+          error = 'user already has 3 vacations';
+          this.setState({ error });
+        } else {
+        const vacayStart = [
+          '08/25/2019',
+          '09/10/2019',
+          '09/30/2019',
+          '10/31/2019'
+        ];
+        const vacayEnd = [
+          '11/1/2019',
+          '12/25/2019',
+          '01/01/2020',
+          '02/14/2020'
+        ]
+        const vacation = (await axios.post(`${API}/users/${this.state.user.id}/vacations`, { startDate: moment(vacayStart[Math.round(Math.random())]), endDate: moment(vacayEnd[Math.round(Math.random())]) } )).data;
+        const vacations = [...this.state.vacations, vacation];
+        this.setState({ vacations });
+        }
+      }
+      update = async (id) => {
+        await axios.put(`${API}/users/${user.id}/notes/${notes.id}`, { text: `${text}` } );
+        await axios.put(`${API}/users/${user.id}/followingCompanies/${followingCompanies.id}`, { rating: 3, companyId: `${filComp.id}` } );
+        await axios.put(`${API}/users/${user.id}/vacations/${vacation.id}`, { startDate: `09/10/2019`, endDate: `10/10/2019` } )
+      }
+      _delete = async (id) => {
+          await axios.delete(`${API}/users/${this.state.user.id}/notes/${id}`);
+          await axios.delete(`${API}/users/${this.state.user.id}/followingCompanies/${id}`);
+          await axios.delete(`${API}/users/${this.state.user.id}/vacations/${id}`);
+          const notes = this.state.notes.filter( note => note.id !== id );
+          const followingCompanies = this.state.followingCompanies.filter( followComp => followComp.id !== id );
+          const vacations = this.state.vacations.filter( vacation => vacation.id !== id );
+          this.setState({ notes, followingCompanies, vacations });
+      }
+      async componentDidMount() {
+        const user = await fetchUser();
+        let notes = (await axios.get(`${API}/users/${user.id}/notes`)).data;
+        let followingCompanies = (await axios.get(`${API}/users/${user.id}/followingCompanies`)).data;
+        const companies = (await axios.get(`${API}/companies`)).data;
+        let vacations = (await axios.get(`${API}/users/${user.id}/vacations`)).data;
+        this.setState({ user, notes, followingCompanies, vacations, companies });
+      }
+      render() {
+        const { error, user, companies, vacations, followingCompanies, notes, addNote, addVacation, addCompany, update, _delete } = this.state;
+        return (
+          <div>
+            <h1>The Acme Random Life</h1>
+            Welcome { user.fullName } to your Random Life!
+            <div className='error'> { error } </div>
+            <Notes notes = { notes } error = { error } addNote = { this.addNote } update = { this.update } _delete = { this._delete } />
+            <FollowingCompanies user = { user } followingCompanies = { followingCompanies } companies = { companies } error = { this.error } addCompany = { this.addCompany } update = { this.update } _delete = { this._delete } />
+            <Vacations vacations = { vacations } error = { this.error } addVacation = { this.addVacation } update = { this.update } _delete = { this._delete } />
+          </div>
+        )
+      }
+    }
+    render( < App /> , root );
+  </script>
+</body>
+</html>
